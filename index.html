@@ -52,7 +52,18 @@
     .modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:18px;z-index:30}
     .modal{width:min(420px,100%);background:#fff;border-radius:18px;padding:24px}
     .modal h2{margin-bottom:7px}.modal .field{margin-top:12px}.modal-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:18px}
-    .manage-buttons{display:flex;gap:6px}
+    .manage-buttons{display:flex;gap:6px;flex-wrap:wrap}
+    .arrival-panel{margin-top:22px;padding:22px;border:1px solid #dbe5f2;border-radius:16px;background:#fbfdff}
+    .arrival-title{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:13px}
+    .arrival-title h2{font-size:19px;margin:0}
+    .arrival-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px}
+    .arrival-entry{background:white;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .arrival-number{font-weight:800;overflow-wrap:anywhere}
+    .arrival-date{font-size:12px;color:var(--gray);white-space:nowrap}
+    .checkline{display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer}
+    .checkline input{width:19px;height:19px;accent-color:var(--blue);flex-shrink:0}
+    .posted{color:var(--green);font-weight:800}
+    .note{font-size:13px;color:var(--gray);line-height:1.5;margin-top:7px}
     @media(max-width:640px){
       main{margin-top:24px}.card{padding:21px 17px}.search-row,.admin-search{flex-direction:column}.primary{min-height:48px}
       .form-grid{grid-template-columns:1fr}.detail-row{grid-template-columns:86px 1fr}
@@ -82,6 +93,10 @@
     <div id="resultArea" class="result-area">
       <div id="resultTitle" class="result-title"></div>
       <div id="resultList" class="result-list"></div>
+    </div>
+    <div class="arrival-panel" id="arrivalPanel">
+      <div class="arrival-title"><h2>최근 입고 원단</h2><span class="small">관리자가 등록한 원단</span></div>
+      <div id="arrivalList" class="arrival-list"><div class="small">입고 원단을 불러오는 중입니다.</div></div>
     </div>
   </section>
 
@@ -123,6 +138,10 @@
         <input id="shipDate" type="date">
       </div>
       <div class="field full">
+        <label class="checkline" for="showArrival"><input id="showArrival" type="checkbox"> 메인 화면의 '최근 입고 원단'에 게시</label>
+        <div class="note">체크한 원단만 메인에 나타납니다. 재고 상태와는 독립적으로 관리됩니다.</div>
+      </div>
+      <div class="field full">
         <label>비고</label>
         <textarea id="memo" placeholder="예: 입고 예정 / 대체 원단 문의"></textarea>
       </div>
@@ -148,6 +167,7 @@
             <th>생산 상태</th>
             <th>출고 예정일</th>
             <th>비고</th>
+            <th>메인 게시</th>
             <th>관리</th>
           </tr>
         </thead>
@@ -177,10 +197,41 @@
   const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const statusText = { in:"있음", out:"없음", temp:"일시품절" };
   let editingId = null;
+  let editingArrival = false;
+  let editingFeaturedAt = null;
+  let arrivalSupported = true;
 
   const $ = id => document.getElementById(id);
   function esc(v){ return String(v||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
   function formatDate(v){ if(!v)return ""; const [y,m,d]=v.split("-"); return `${y}.${m}.${d}`; }
+
+  async function loadArrivals(){
+    const root = $("arrivalList");
+    root.innerHTML = '<div class="small">입고 원단을 불러오는 중입니다.</div>';
+    const {data,error} = await client.from("fabrics")
+      .select("fabric_no,featured_at")
+      .eq("show_on_main",true)
+      .order("featured_at",{ascending:false})
+      .limit(30);
+    if(error){
+      arrivalSupported = false;
+      root.innerHTML = '<div class="small">입고 목록을 표시할 수 없습니다. 관리자에게 문의해 주세요.</div>';
+      return;
+    }
+    arrivalSupported = true;
+    if(!data || !data.length){
+      root.innerHTML = '<div class="small">현재 등록된 최근 입고 원단이 없습니다.</div>';
+      return;
+    }
+    root.innerHTML = "";
+    for(const item of data){
+      const entry=document.createElement("div");
+      entry.className="arrival-entry";
+      const date=item.featured_at ? new Date(item.featured_at).toLocaleDateString("ko-KR",{year:"numeric",month:"2-digit",day:"2-digit"}) : "";
+      entry.innerHTML=`<span class="arrival-number">${esc(item.fabric_no)}</span><span class="arrival-date">${esc(date)}</span>`;
+      root.appendChild(entry);
+    }
+  }
 
   async function searchPublic(){
     const q = $("searchInput").value.trim();
@@ -261,10 +312,14 @@
     await client.auth.signOut();
     $("adminPanel").style.display="none";
     $("publicPanel").style.display="block";
+    loadArrivals();
   }
 
   function clearForm(){
     editingId=null;
+    editingArrival=false;
+    editingFeaturedAt=null;
+    $("showArrival").checked=false;
     $("fabricNo").value="";
     $("stockStatus").value="in";
     $("productionStatus").value="";
@@ -276,7 +331,11 @@
     const fabric_no=$("fabricNo").value.trim();
     if(!fabric_no) return alert("원단번호를 입력해주세요.");
 
+    if(!arrivalSupported) return alert("먼저 안내된 Supabase SQL 설정을 적용해야 최근 입고 기능을 사용할 수 있습니다.");
+    const showArrival=$("showArrival").checked;
     const payload={
+      show_on_main:showArrival,
+      featured_at:showArrival ? (editingArrival && editingFeaturedAt ? editingFeaturedAt : new Date().toISOString()) : null,
       fabric_no,
       stock_status:$("stockStatus").value,
       production_status:$("productionStatus").value||null,
@@ -296,6 +355,7 @@
     alert("저장되었습니다.");
     clearForm();
     loadRecent();
+    loadArrivals();
   }
 
   async function loadRecent(){
@@ -329,12 +389,12 @@
     tbody.innerHTML="";
 
     if(errorMsg){
-      tbody.innerHTML=`<tr><td colspan="6">오류: ${esc(errorMsg)}</td></tr>`;
+      tbody.innerHTML=`<tr><td colspan="7">오류: ${esc(errorMsg)}</td></tr>`;
       return;
     }
 
     if(!rows.length){
-      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px">표시할 원단이 없습니다.</td></tr>';
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px">표시할 원단이 없습니다.</td></tr>';
       return;
     }
 
@@ -346,8 +406,10 @@
         <td>${esc(item.production_status||"-")}</td>
         <td>${esc(formatDate(item.ship_date)||"-")}</td>
         <td>${esc(item.memo||"-")}</td>
+        <td>${item.show_on_main ? '<span class="posted">게시 중</span>' : '미게시'}</td>
         <td>
           <div class="manage-buttons">
+            <button class="secondary toggle" data-id="${item.id}" data-posted="${!!item.show_on_main}">${item.show_on_main ? '게시 해제' : '메인 게시'}</button>
             <button class="secondary edit" data-id="${item.id}">수정</button>
             <button class="danger del" data-id="${item.id}">삭제</button>
           </div>
@@ -359,6 +421,9 @@
       const {data,error}=await client.from("fabrics").select("*").eq("id",btn.dataset.id).single();
       if(error)return alert(error.message);
       editingId=data.id;
+      editingArrival=!!data.show_on_main;
+      editingFeaturedAt=data.featured_at;
+      $("showArrival").checked=editingArrival;
       $("fabricNo").value=data.fabric_no;
       $("stockStatus").value=data.stock_status;
       $("productionStatus").value=data.production_status||"";
@@ -367,11 +432,30 @@
       window.scrollTo({top:0,behavior:"smooth"});
     });
 
+    tbody.querySelectorAll(".toggle").forEach(btn=>btn.onclick=async()=>{
+      if(!arrivalSupported)return alert("먼저 Supabase SQL 설정을 적용해주세요.");
+      btn.disabled=true;
+      const next=btn.dataset.posted!=="true";
+      const {error}=await client.from("fabrics").update({
+        show_on_main:next,
+        featured_at:next ? new Date().toISOString() : null
+      }).eq("id",btn.dataset.id);
+      btn.disabled=false;
+      if(error)return alert("게시 상태 변경 실패: "+error.message);
+      if(editingId===btn.dataset.id){
+        editingArrival=next;
+        editingFeaturedAt=next ? new Date().toISOString() : null;
+        $("showArrival").checked=next;
+      }
+      await Promise.all([loadRecent(),loadArrivals()]);
+    });
+
     tbody.querySelectorAll(".del").forEach(btn=>btn.onclick=async()=>{
       if(!confirm("이 원단을 삭제할까요?"))return;
       const {error}=await client.from("fabrics").delete().eq("id",btn.dataset.id);
       if(error)return alert("삭제 실패: "+error.message);
       loadRecent();
+      loadArrivals();
     });
   }
 
@@ -383,7 +467,7 @@
   $("searchBtn").onclick=searchPublic;
   $("searchInput").onkeydown=e=>{if(e.key==="Enter")searchPublic()};
   $("adminBtn").onclick=showAdmin;
-  $("publicBtn").onclick=()=>{$("adminPanel").style.display="none";$("publicPanel").style.display="block"};
+  $("publicBtn").onclick=()=>{$("adminPanel").style.display="none";$("publicPanel").style.display="block";loadArrivals()};
   $("logoutBtn").onclick=logout;
   $("loginBtn").onclick=login;
   $("closeLoginBtn").onclick=()=>$("loginModal").style.display="none";
@@ -391,6 +475,7 @@
   $("saveBtn").onclick=saveFabric;
   $("adminSearchBtn").onclick=searchAdmin;
   $("loadRecentBtn").onclick=loadRecent;
+  loadArrivals();
 </script>
 </body>
 </html>
