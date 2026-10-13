@@ -211,6 +211,7 @@
     const {data,error} = await client.from("fabrics")
       .select("fabric_no,featured_at")
       .eq("show_on_main",true)
+      .gte("featured_at",new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString())
       .order("featured_at",{ascending:false})
       .limit(30);
     if(error){
