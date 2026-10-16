@@ -196,7 +196,7 @@
   const SUPABASE_KEY = "sb_publishable_fCZlfsRXOoVM-OlzaZv3_Q_pQIMQRnY";
 
   const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  const statusText = { in:"있음", out:"없음", temp:"일시품절" };
+  const statusText = { in:"재고 있음", out:"재고 없음", temp:"일시품절" };
   let editingId = null;
   let editingArrival = false;
   let editingFeaturedAt = null;
@@ -248,7 +248,7 @@
 
     const {data,error} = await client
       .from("fabrics")
-      .select("id,fabric_no,stock_status,ship_date,memo")
+      .select("id,fabric_no,stock_status,production_status,ship_date,memo")
       .ilike("fabric_no", `%${q}%`)
       .order("fabric_no", {ascending:true})
       .limit(100);
@@ -282,6 +282,7 @@
         <div class="result-head">
           <div class="fabric-no">${esc(item.fabric_no)}</div>
           <div class="status ${item.stock_status}">${statusText[item.stock_status]||esc(item.stock_status)}</div>
+          ${item.production_status ? `<div class="status">${esc(item.production_status)}</div>` : ""}
         </div>
         ${details.length ? `<div class="public-details">${details.join("")}</div>` : ""}
       `;
