@@ -284,7 +284,7 @@
           <div class="fabric-no">${esc(item.fabric_no)}</div>
 <div class="status-group">
 <div class="status ${item.stock_status}">${statusText[item.stock_status] || esc(item.stock_status)}</div>
-  ${item.production_status ? `<div class="status">${esc(item.production_status)}</div>` : ""}
+ ${item.production_status && item.production_status !== (statusText[item.stock_status] || item.stock_status) ? `<div class="status">${esc(item.production_status)}</div>` : ""} 
 </div>
         </div>
         ${details.length ? `<div class="public-details">${details.join("")}</div>` : ""}
