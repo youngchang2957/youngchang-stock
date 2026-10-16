@@ -283,7 +283,7 @@
         <div class="result-head">
           <div class="fabric-no">${esc(item.fabric_no)}</div>
 <div class="status-group">
-${item.production_status ? '<div class="status">' + esc(item.production_status) + '</div>' : ""}
+<div class="status ${item.stock_status}">${statusText[item.stock_status] || esc(item.stock_status)}</div>
   ${item.production_status ? `<div class="status">${esc(item.production_status)}</div>` : ""}
 </div>
         </div>
