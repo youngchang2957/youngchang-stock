@@ -31,6 +31,7 @@
     .result-area{display:none;margin-top:22px}.result-title{font-size:14px;color:var(--gray);margin-bottom:9px}.result-list{display:grid;gap:11px}
     .result-item{border:1px solid var(--line);border-radius:15px;padding:18px;background:#fff}
     .result-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .result-head .status-group{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
     .fabric-no{font-size:18px;font-weight:800;word-break:break-all}
     .status{font-weight:800;padding:7px 11px;border-radius:999px;font-size:13px;white-space:nowrap}
     .in{background:#dcfce7;color:#166534}.out{background:#fee2e2;color:#991b1b}.temp{background:#ffedd5;color:#9a3412}
@@ -281,8 +282,10 @@
       div.innerHTML=`
         <div class="result-head">
           <div class="fabric-no">${esc(item.fabric_no)}</div>
-          <div class="status ${item.stock_status}">${statusText[item.stock_status]||esc(item.stock_status)}</div>
-          ${item.production_status ? `<div class="status">${esc(item.production_status)}</div>` : ""}
+<div class="status-group">
+${item.production_status ? '<div class="status">' + esc(item.production_status) + '</div>' : ""}
+  ${item.production_status ? `<div class="status">${esc(item.production_status)}</div>` : ""}
+</div>
         </div>
         ${details.length ? `<div class="public-details">${details.join("")}</div>` : ""}
       `;
