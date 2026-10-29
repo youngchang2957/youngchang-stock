@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>넥스젠 / 영창직물 원단 재고조회</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root{
       --navy:#122238;--blue:#2457d6;--green:#178c5b;--red:#d54343;
@@ -154,7 +155,25 @@
       <button id="clearBtn" class="secondary">초기화</button>
       <button id="saveBtn" class="primary">등록/수정</button>
     </div>
-
+<div class="card" style="margin-top:16px; padding:16px;">
+  <h3>신규 원단 엑셀 일괄 등록</h3>
+  <p class="small">
+    원단번호만 등록하며 기존 데이터는 수정하지 않습니다.
+  </p>
+  <input
+    type="file"
+    id="excelUpload"
+    accept=".xlsx,.xls"
+  >
+  <button
+    type="button"
+    id="excelPreviewBtn"
+    class="secondary"
+  >
+    엑셀 미리보기
+  </button>
+  <div id="excelPreviewResult"></div>
+</div>
     <div class="admin-search">
       <input id="adminSearchInput" placeholder="관리 목록에서 원단번호 검색">
       <button id="adminSearchBtn" class="secondary">검색</button>
@@ -259,6 +278,50 @@ async function loadLastUpdated(){
 
   $("lastUpdated").textContent =
     "최종 업데이트 · " + formatted;
+}
+  async function previewExcel() {
+  const file = $("excelUpload").files[0];
+  const result = $("excelPreviewResult");
+
+  if (!file) {
+    alert("엑셀 파일을 선택해주세요.");
+    return;
+  }
+
+  result.textContent = "엑셀 파일을 읽는 중입니다...";
+
+  try {
+    if (typeof XLSX === "undefined") {
+      throw new Error("엑셀 라이브러리를 불러오지 못했습니다.");
+    }
+
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      defval: "",
+      raw: false
+    });
+
+    const numbers = rows
+      .map(row => String(row[0] ?? "").trim())
+      .filter(Boolean)
+      .filter(no => no !== "원단번호");
+
+    const unique = [...new Set(numbers)];
+
+    result.textContent =
+      "엑셀 원단번호: " + numbers.length + "개\n" +
+      "중복 제외: " + unique.length + "개\n\n" +
+      unique.join("\n");
+
+    result.style.whiteSpace = "pre-wrap";
+
+  } catch (error) {
+    result.textContent = "파일 읽기 오류: " + error.message;
+  }
 }
   async function searchPublic(){
     const q = $("searchInput").value.trim();
@@ -505,6 +568,7 @@ async function loadLastUpdated(){
   $("saveBtn").onclick=saveFabric;
   $("adminSearchBtn").onclick=searchAdmin;
   $("loadRecentBtn").onclick=loadRecent;
+  $("excelPreviewBtn").onclick=previewExcel;
   loadArrivals();
   loadLastUpdated();
 </script>
