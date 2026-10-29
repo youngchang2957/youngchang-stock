@@ -327,7 +327,7 @@ async function loadLastUpdated(){
       unique.join("\n");
 
     result.style.whiteSpace = "pre-wrap";
-
+$("excelImportBtn").style.display = "block";
   } catch (error) {
     result.textContent = "파일 읽기 오류: " + error.message;
   }
