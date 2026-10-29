@@ -173,6 +173,15 @@
     엑셀 미리보기
   </button>
   <div id="excelPreviewResult"></div>
+  <button
+  type="button"
+  id="excelImportBtn"
+  class="primary"
+  style="display:none; margin-top:12px;"
+>
+  신규 원단 일괄 등록
+</button>
+<div id="excelImportResult" style="margin-top:12px;"></div>
 </div>
     <div class="admin-search">
       <input id="adminSearchInput" placeholder="관리 목록에서 원단번호 검색">
@@ -321,6 +330,72 @@ async function loadLastUpdated(){
 
   } catch (error) {
     result.textContent = "파일 읽기 오류: " + error.message;
+  }
+}
+  async function importExcel() {
+  const file = $("excelUpload").files[0];
+  const result = $("excelImportResult");
+  const btn = $("excelImportBtn");
+
+  if (!file) {
+    alert("엑셀 파일을 선택해주세요.");
+    return;
+  }
+
+  if (!confirm("신규 원단만 등록합니다. 진행할까요?")) return;
+
+  btn.disabled = true;
+  result.textContent = "등록 중입니다...";
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      defval: "",
+      raw: false
+    });
+
+    const numbers = [...new Set(
+      rows.map(row => String(row[0] ?? "").trim())
+        .filter(no => no && no !== "원단번호")
+    )];
+
+    if (!numbers.length) {
+      throw new Error("등록할 원단번호가 없습니다.");
+    }
+
+    const { data, error } = await client
+      .from("fabrics")
+      .upsert(
+        numbers.map(no => ({
+          fabric_no: no,
+stock_status: "in",
+production_status: ""
+        })),
+        {
+          onConflict: "fabric_no",
+          ignoreDuplicates: true
+        }
+      )
+      .select("fabric_no");
+
+    if (error) throw error;
+
+    const added = data?.length ?? 0;
+
+    result.textContent =
+      "등록 완료: " + added + "개\n" +
+      "중복 건너뛰기: " + (numbers.length - added) + "개";
+
+    result.style.whiteSpace = "pre-wrap";
+    btn.style.display = "none";
+
+  } catch (error) {
+    result.textContent = "등록 오류: " + error.message;
+  } finally {
+    btn.disabled = false;
   }
 }
   async function searchPublic(){
@@ -569,6 +644,7 @@ async function loadLastUpdated(){
   $("adminSearchBtn").onclick=searchAdmin;
   $("loadRecentBtn").onclick=loadRecent;
   $("excelPreviewBtn").onclick=previewExcel;
+  $("excelImportBtn").onclick=importExcel;
   loadArrivals();
   loadLastUpdated();
 </script>
