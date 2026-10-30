@@ -156,22 +156,19 @@
       <button id="saveBtn" class="primary">등록/수정</button>
     </div>
 <div class="card" style="margin-top:16px; padding:16px;">
-  <h3>신규 원단 엑셀 일괄 등록</h3>
+<div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;">
+  <h3 style="margin:0;">신규 원단 엑셀 일괄 등록</h3>
+  <button type="button" id="excelPreviewBtn" class="secondary">엑셀 미리보기</button>
+</div>
   <p class="small">
     원단번호만 등록하며 기존 데이터는 수정하지 않습니다.
   </p>
   <input
     type="file"
     id="excelUpload"
-    accept=".xlsx,.xls"
+    accept=".xlsx,.xls" 
   >
-  <button
-    type="button"
-    id="excelPreviewBtn"
-    class="secondary"
-  >
-    엑셀 미리보기
-  </button>
+  
   <div id="excelPreviewResult"></div>
   <button
   type="button"
@@ -335,16 +332,77 @@ const existingSet = new Set(
 const newNumbers = unique.filter(no => !existingSet.has(no));
 const existingNumbers = unique.filter(no => existingSet.has(no));
 
-result.textContent =
-  "엑셀 원단번호: " + unique.length + "개\n" +
-  "신규 등록 예정: " + newNumbers.length + "개\n" +
-  "기존 원단 건너뛰기: " + existingNumbers.length + "개\n\n" +
-  "[신규]\n" +
-  (newNumbers.length ? newNumbers.join("\n") : "없음") +
-  "\n\n[기존]\n" +
-  (existingNumbers.length ? existingNumbers.join("\n") : "없음");
+result.innerHTML = `
+  <div style="margin-top:16px; font-size:14px;">
 
-result.style.whiteSpace = "pre-wrap";
+    <div style="margin-bottom:14px; font-weight:700;">
+      엑셀 원단번호:
+      <span style="color:#2457d6;">${unique.length}개</span>
+    </div>
+
+    <div style="
+      background:#f0fdf4;
+      border:1px solid #bbf7d0;
+      border-radius:12px;
+      padding:14px;
+      margin-bottom:12px;
+    ">
+      <div style="font-weight:800; color:#15803d; margin-bottom:8px;">
+        ✓ 신규 등록 예정 · ${newNumbers.length}개
+      </div>
+
+      <div style="color:#6b7280; font-size:12px; margin-bottom:10px;">
+        아래 원단번호가 새로 등록됩니다.
+      </div>
+
+      ${newNumbers.length
+        ? newNumbers.map(no => `
+            <div style="
+              background:#fff;
+              border:1px solid #dcfce7;
+              border-radius:8px;
+              padding:9px 11px;
+              margin-top:6px;
+            ">
+              ${esc(no)}
+            </div>
+          `).join("")
+        : `<div style="color:#6b7280;">없음</div>`
+      }
+    </div>
+
+    <div style="
+      background:#f8fafc;
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      padding:14px;
+    ">
+      <div style="font-weight:800; color:#475569; margin-bottom:8px;">
+        − 기존 원단 · 등록 제외 · ${existingNumbers.length}개
+      </div>
+
+      <div style="color:#6b7280; font-size:12px; margin-bottom:10px;">
+        이미 등록된 원단번호는 건너뜁니다.
+      </div>
+
+      ${existingNumbers.length
+        ? existingNumbers.map(no => `
+            <div style="
+              background:#fff;
+              border:1px solid #e2e8f0;
+              border-radius:8px;
+              padding:9px 11px;
+              margin-top:6px;
+            ">
+              ${esc(no)}
+            </div>
+          `).join("")
+        : `<div style="color:#6b7280;">없음</div>`
+      }
+    </div>
+
+  </div>
+`;
 
 $("excelImportBtn").style.display =
   newNumbers.length ? "block" : "none";
