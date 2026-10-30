@@ -177,7 +177,7 @@
   type="button"
   id="excelImportBtn"
   class="primary"
- style="margin-top:12px;"
+style="display:none; margin-top:12px;"
 >
   신규 원단 일괄 등록
 </button>
@@ -321,13 +321,33 @@ async function loadLastUpdated(){
 
     const unique = [...new Set(numbers)];
 
-    result.textContent =
-      "엑셀 원단번호: " + numbers.length + "개\n" +
-      "중복 제외: " + unique.length + "개\n\n" +
-      unique.join("\n");
+const { data: existingData, error: existingError } = await client
+  .from("fabrics")
+  .select("fabric_no")
+  .in("fabric_no", unique);
 
-    result.style.whiteSpace = "pre-wrap";
-$("excelImportBtn").style.display = "block";
+if (existingError) throw existingError;
+
+const existingSet = new Set(
+  (existingData || []).map(item => item.fabric_no)
+);
+
+const newNumbers = unique.filter(no => !existingSet.has(no));
+const existingNumbers = unique.filter(no => existingSet.has(no));
+
+result.textContent =
+  "엑셀 원단번호: " + unique.length + "개\n" +
+  "신규 등록 예정: " + newNumbers.length + "개\n" +
+  "기존 원단 건너뛰기: " + existingNumbers.length + "개\n\n" +
+  "[신규]\n" +
+  (newNumbers.length ? newNumbers.join("\n") : "없음") +
+  "\n\n[기존]\n" +
+  (existingNumbers.length ? existingNumbers.join("\n") : "없음");
+
+result.style.whiteSpace = "pre-wrap";
+
+$("excelImportBtn").style.display =
+  newNumbers.length ? "block" : "none";
   } catch (error) {
     result.textContent = "파일 읽기 오류: " + error.message;
   }
